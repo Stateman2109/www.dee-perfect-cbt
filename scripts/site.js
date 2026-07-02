@@ -1,4 +1,7 @@
-﻿const SUPABASE_URL = "https://bjfhmvvupkapplnbrukz.supabase.co";
+﻿
+const SUPABASE_URL = "https://bjfhmvvupkapplnbrukz.supabase.co";
+const SUPABASE_URL = "https://bjfhmvvupkapplnbrukz.supabase.co";
+
 const SUPABASE_ANON_KEY = "sb_publishable_RxNzh9HL5UPhazJDk6BL9w_aJtZLBAP";
 const QUESTION_CACHE_KEY = "dee_perfect_question_cache";
 const OUTBOX_CACHE_KEY = "dee_perfect_question_outbox";
@@ -390,6 +393,27 @@ async function signInUser(email, password) {
   return await supabaseRestSignIn(email, password);
 }
 
+// async function signUpUser(fullName, email, password, role = "student") {
+//   if (!fullName || !email || !password) {
+//     throw new Error("Name, email, and password are required.");
+//   }
+
+//   const { data, error } = await supabase.auth.signUp(
+//     { email, password },
+//     {
+//       data: {
+//         full_name: fullName,
+//         role,
+//       },
+//     },
+//   );
+
+//   if (error) {
+//     throw error;
+//   }
+
+//   return data.user;
+// }
 async function signUpUser(fullName, email, password, role = "student") {
   if (!fullName || !email || !password) {
     throw new Error("Name, email, and password are required.");
@@ -491,12 +515,28 @@ function attachAuthHandlers() {
       const email = document.getElementById("login-email")?.value.trim();
       const password = document.getElementById("login-password")?.value;
       console.log("Login attempt for:", email);
+<<<<<<< HEAD
+
+      if (!email || !password) {
+        showNotification("Please enter both email and password.", "error");
+        return;
+      }
+=======
+>>>>>>> 32e2fa35903d0ce220d5974b355ccc5431e13be0
 
       if (!email || !password) {
         showNotification("Please enter both email and password.", "error");
         return;
       }
 
+      //   try {
+      //     const user = await signInUser(email, password);
+      //     showNotification("Login successful. Redirecting...");
+      //     const role = user?.user_metadata?.role || "student";
+      //     redirectToDashboard(role);
+      //   } catch (err) {
+      //     showNotification(err.message || "Login failed.", "error");
+      //   }
       try {
         const user = await signInUser(email, password);
         showNotification("Login successful. Verifying account credentials...");
