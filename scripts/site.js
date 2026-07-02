@@ -1,7 +1,4 @@
-﻿
-const SUPABASE_URL = "https://bjfhmvvupkapplnbrukz.supabase.co";
-const SUPABASE_URL = "https://bjfhmvvupkapplnbrukz.supabase.co";
-
+﻿const SUPABASE_URL = "https://bjfhmvvupkapplnbrukz.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_RxNzh9HL5UPhazJDk6BL9w_aJtZLBAP";
 const QUESTION_CACHE_KEY = "dee_perfect_question_cache";
 const OUTBOX_CACHE_KEY = "dee_perfect_question_outbox";
@@ -515,14 +512,6 @@ function attachAuthHandlers() {
       const email = document.getElementById("login-email")?.value.trim();
       const password = document.getElementById("login-password")?.value;
       console.log("Login attempt for:", email);
-<<<<<<< HEAD
-
-      if (!email || !password) {
-        showNotification("Please enter both email and password.", "error");
-        return;
-      }
-=======
->>>>>>> 32e2fa35903d0ce220d5974b355ccc5431e13be0
 
       if (!email || !password) {
         showNotification("Please enter both email and password.", "error");
