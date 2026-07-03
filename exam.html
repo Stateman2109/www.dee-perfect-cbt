@@ -2,18 +2,131 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Exam Page</title>
-    <link rel="icon" href="data:," />
-  </head>
-  <body>
-    <h2>Exam Questions</h2>
+    <title>CBT Exam</title>
 
-    <!-- <div id="questions-container"></div> -->
-    <div id="questions-container">Loading questions...</div>
+    <script src="./scripts/supabase.min.js"></script>
+
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: #0f172a;
+        color: white;
+        margin: 0;
+        padding: 0;
+      }
+
+      .header {
+        background: #020617;
+        padding: 15px;
+        text-align: center;
+        font-size: 20px;
+        font-weight: bold;
+      }
+
+      .timer-bar {
+        text-align: center;
+        padding: 10px;
+        background: #1e293b;
+      }
+
+      .container {
+        max-width: 900px;
+        margin: auto;
+        padding: 20px;
+      }
+
+      .card {
+        background: #1e293b;
+        padding: 20px;
+        border-radius: 10px;
+      }
+
+      .question {
+        font-size: 18px;
+        margin-bottom: 15px;
+      }
+
+      .option {
+        display: block;
+        background: #334155;
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: 0.2s;
+      }
+
+      .option:hover {
+        background: #475569;
+      }
+
+      input[type="radio"] {
+        margin-right: 10px;
+      }
+
+      .nav-grid {
+        margin-bottom: 15px;
+      }
+
+      .nav-grid button {
+        padding: 6px 10px;
+        margin: 3px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .controls {
+        margin-top: 15px;
+      }
+
+      button {
+        padding: 10px 15px;
+        margin: 5px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        background: #22c55e;
+        color: white;
+      }
+
+      button:hover {
+        opacity: 0.85;
+      }
+
+      .review-box {
+        background: #334155;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="header">🧠 CBT Examination System</div>
+    <div class="timer-bar">
+      ⏱ Exam Time Left: <span id="examTimer">--</span>
+    </div>
+
+    <div class="container">
+      <div id="questions-container" class="card">Loading questions...</div>
+    </div>
 
     <script>
+      let currentQuestionIndex = 0;
+      let userAnswers = {};
+      let timerInterval;
+      let examTimerInterval;
+      let timeLeft = 60;
+      let examTime = 1800;
+      let allQuestions = [];
+
+      function getExamAnswerKey(examData) {
+        return `cbt_${examData.subject}_${examData.year}`;
+      }
+
       document.addEventListener("DOMContentLoaded", async () => {
-        // 1. Get selected exam data
         const examData = JSON.parse(localStorage.getItem("examData"));
 
         if (!examData) {
@@ -22,178 +135,194 @@
           return;
         }
 
-        console.log("Exam Data:", examData);
+        const answerKey = getExamAnswerKey(examData);
+        userAnswers = JSON.parse(localStorage.getItem(answerKey) || "{}");
 
-        try {
-          // 2. Fetch questions from your API
-          const res = await fetch(
-            `https://the-trivia-api.com/v2/questions?limit=10`,
-          );
+        const db = supabase.createClient(
+          "https://bjfhmvvupkapplnbrukz.supabase.co",
+          "sb_publishable_RxNzh9HL5UPhazJDk6BL9w_aJtZLBAP",
+        );
 
-          const data = await res.json();
+        const { data } = await db.from("questions").select("*");
 
-          displayQuestions(data);
-        } catch (error) {
-          console.error("Error fetching questions:", error);
+        allQuestions = data.map((q) => ({
+          ...q,
+          correct_answer: normalizeAnswer(q),
+        }));
+
+        renderQuestion();
+        startExamTimer();
+
+        setInterval(() => {
+          localStorage.setItem(answerKey, JSON.stringify(userAnswers));
+        }, 5000);
+      });
+
+      function normalizeAnswer(q) {
+        const val = String(q.correct_answer || "")
+          .trim()
+          .toUpperCase();
+        if (["A", "B", "C", "D"].includes(val)) return val;
+
+        if (q.correct_answer === q.option_a) return "A";
+        if (q.correct_answer === q.option_b) return "B";
+        if (q.correct_answer === q.option_c) return "C";
+        if (q.correct_answer === q.option_d) return "D";
+
+        return "";
+      }
+
+      function renderNavGrid() {
+        return `
+    <div class="nav-grid">
+      ${allQuestions
+        .map((_, i) => {
+          const bg = userAnswers[i] ? "#22c55e" : "#475569";
+          return `<button style="background:${bg}" onclick="goTo(${i})">${i + 1}</button>`;
+        })
+        .join("")}
+    </div>
+  `;
+      }
+
+      function renderQuestion() {
+        const q = allQuestions[currentQuestionIndex];
+
+        document.getElementById("questions-container").innerHTML = `
+    ${renderNavGrid()}
+
+    <div class="question">
+      <b>Q${currentQuestionIndex + 1}:</b> ${q.question_text}
+    </div>
+
+    ${renderOption("A", q.option_a)}
+    ${renderOption("B", q.option_b)}
+    ${renderOption("C", q.option_c)}
+    ${renderOption("D", q.option_d)}
+
+    <p>⏱ Question Time: <span id="timer">${timeLeft}</span>s</p>
+
+    <div class="controls">
+      <button onclick="prev()">⬅ Prev</button>
+      <button onclick="next()">Next ➡</button>
+      <button onclick="submitExam()">Submit</button>
+    </div>
+  `;
+
+        restore();
+        startTimer();
+      }
+
+      function renderOption(letter, text) {
+        return `
+    <label class="option">
+      <input type="radio" name="opt" value="${letter}">
+      ${letter}. ${text}
+    </label>
+  `;
+      }
+
+      document.addEventListener("change", (e) => {
+        if (e.target.name === "opt") {
+          userAnswers[currentQuestionIndex] = e.target.value;
         }
       });
 
-      // 3. Display questions
-      function displayQuestions(questions) {
-        const container = document.getElementById("questions-container");
-
-        if (!container) {
-          console.error("Container not found");
-          return;
+      function restore() {
+        const val = userAnswers[currentQuestionIndex];
+        if (val) {
+          const el = document.querySelector(`input[value="${val}"]`);
+          if (el) el.checked = true;
         }
+      }
 
-        container.innerHTML = "";
+      function startTimer() {
+        clearInterval(timerInterval);
+        timeLeft = 60;
 
-        if (!questions || questions.length === 0) {
-          container.innerHTML = "<p>No questions found</p>";
-          return;
+        timerInterval = setInterval(() => {
+          timeLeft--;
+          document.getElementById("timer").textContent = timeLeft;
+
+          if (timeLeft <= 0) next();
+        }, 1000);
+      }
+
+      function startExamTimer() {
+        examTimerInterval = setInterval(() => {
+          examTime--;
+          const m = Math.floor(examTime / 60);
+          const s = examTime % 60;
+          document.getElementById("examTimer").textContent =
+            `${m}:${s < 10 ? "0" : ""}${s}`;
+
+          if (examTime <= 0) submitExam();
+        }, 1000);
+      }
+
+      function next() {
+        clearInterval(timerInterval);
+        if (currentQuestionIndex < allQuestions.length - 1) {
+          currentQuestionIndex++;
+          renderQuestion();
+        } else {
+          submitExam();
         }
+      }
 
-        questions.forEach((q, index) => {
-          let options = q.options;
+      function prev() {
+        clearInterval(timerInterval);
+        if (currentQuestionIndex > 0) {
+          currentQuestionIndex--;
+          renderQuestion();
+        }
+      }
 
-          // ✅ Handle if options is string
-          if (typeof options === "string") {
-            try {
-              options = JSON.parse(options);
-            } catch (e) {
-              console.error("Invalid options JSON", options);
-              options = {};
-            }
-          }
+      function goTo(i) {
+        clearInterval(timerInterval);
+        currentQuestionIndex = i;
+        renderQuestion();
+      }
 
-          container.innerHTML += `
-      <div>
-        <h3>${index + 1}. ${q.question || "No question text"}</h3>
-        <p>A. ${options?.A || ""}</p>
-        <p>B. ${options?.B || ""}</p>
-        <p>C. ${options?.C || ""}</p>
-        <p>D. ${options?.D || ""}</p>
+      function submitExam() {
+        clearInterval(timerInterval);
+        clearInterval(examTimerInterval);
+
+        let score = 0;
+        let review = "";
+
+        allQuestions.forEach((q, i) => {
+          const user = (userAnswers[i] || "").toUpperCase();
+          const correct = q.correct_answer;
+
+          const userText = q["option_" + user.toLowerCase()] || "No Answer";
+          const correctText = q["option_" + correct.toLowerCase()];
+
+          const ok = user === correct;
+          if (ok) score++;
+
+          review += `
+      <div class="review-box">
+        <p><b>Q${i + 1}:</b> ${q.question_text}</p>
+        <p>Your Answer: <span style="color:${ok ? "#22c55e" : "#ef4444"}">${userText}</span></p>
+        <p>Correct Answer: <span style="color:#22c55e">${correctText}</span></p>
       </div>
     `;
         });
+
+        const percent = Math.round((score / allQuestions.length) * 100);
+
+        document.getElementById("questions-container").innerHTML = `
+    <h2>✅ Exam Submitted</h2>
+    <h3>${score} / ${allQuestions.length}</h3>
+    <h1>${percent}%</h1>
+    <hr>
+    <h3>📊 Review</h3>
+    ${review}
+  `;
+
+        localStorage.removeItem("examData");
       }
     </script>
-    <script>
-      const examData = JSON.parse(localStorage.getItem("examData"));
-
-      console.log("Received examData:", examData);
-    </script>
-    <script>
-      async function loadQuestions() {
-        const examData = JSON.parse(localStorage.getItem("examData"));
-
-        console.log("Exam Data:", examData);
-
-        const url = `https://the-trivia-api.com/v2/questions?limit=30`;
-
-        try {
-          const res = await fetch(url);
-          const data = await res.json();
-
-          console.log("Questions:", data);
-
-          displayQuestions(data);
-        } catch (err) {
-          console.error("Error fetching questions:", err);
-        }
-      }
-
-      function displayQuestions(questions) {
-        const container = document.getElementById("questions-container");
-
-        container.innerHTML = "";
-
-        questions.forEach((q, index) => {
-          const options = [...q.incorrectAnswers, q.correctAnswer];
-
-          const div = document.createElement("div");
-
-          div.innerHTML = `
-        <h3>Q${index + 1}: ${q.question.text}</h3>
-        <ul>
-          ${options.map((opt) => `<li>${opt}</li>`).join("")}
-        </ul>
-      `;
-
-          container.appendChild(div);
-        });
-      }
-
-      window.onload = loadQuestions;
-      async function loadQuestions() {
-        const examData = JSON.parse(localStorage.getItem("examData"));
-
-        console.log("Exam Data:", examData);
-
-        // 1. Get Supabase questions
-        let localQuestions = [];
-        try {
-          const { data, error } = await supabase
-            .from("questions")
-            .select("*")
-            .eq("subject", examData.subject)
-            .eq("year", examData.year);
-
-          if (!error) {
-            localQuestions = data;
-          }
-        } catch (err) {
-          console.log("Supabase error:", err);
-        }
-
-        // 2. Get API questions (fallback)
-        let apiQuestions = [];
-        try {
-          const res = await fetch(
-            `https://the-trivia-api.com/v2/questions?limit=30`,
-          );
-          apiQuestions = await res.json();
-        } catch (err) {
-          console.log("API error:", err);
-        }
-
-        // 3. Merge both
-        const allQuestions = [...localQuestions, ...apiQuestions];
-
-        console.log("Final Questions:", allQuestions);
-
-        displayQuestions(allQuestions);
-      }
-    </script>
-
-    <script>
-      async function loadQuestions() {
-        const examData = JSON.parse(localStorage.getItem("examData"));
-
-        console.log("Exam Data:", examData);
-
-        // 1. Get Supabase questions
-        let localQuestions = [];
-        try {
-          const { data, error } = await supabase
-            .from("questions")
-            .select("*")
-            .eq("subject", examData.subject)
-            .eq("year", examData.year);
-
-          if (!error) {
-            localQuestions = data;
-          }
-
-          console.log("Supabase result:", localQuestions);
-        } catch (err) {
-          console.log("Supabase error:", err);
-        }
-      }
-    </script>
-
-    <script src="./scripts/supabase.min.js"></script>
-    <script src="./scripts/site.js"></script>
   </body>
 </html>
